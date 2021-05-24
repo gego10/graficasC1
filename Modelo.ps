@@ -1,0 +1,90 @@
+////////////////////////////////////////////////////////////////////////////////
+// Filename: light.ps
+////////////////////////////////////////////////////////////////////////////////
+#version 400
+
+
+/////////////////////
+// INPUT VARIABLES //
+/////////////////////
+in vec2 texCoord;
+in vec3 normal;
+in vec3 tangente;
+in vec3 binormal;
+in vec3 posicion;
+
+
+//////////////////////
+// OUTPUT VARIABLES //
+//////////////////////
+out vec4 outputColor;
+
+
+///////////////////////
+// UNIFORM VARIABLES //
+///////////////////////
+uniform sampler2D colorText;
+uniform sampler2D normText;
+uniform sampler2D specText;
+
+uniform vec3 lightDirection;
+uniform vec4 diffuseLightColor;
+uniform vec3 camaraDir;
+
+////////////////////////////////////////////////////////////////////////////////
+// Pixel Shader
+////////////////////////////////////////////////////////////////////////////////
+void main(void)
+{
+	vec4 LuzAmbiental = vec4(1.0, 1.0, 1.0, 1); // viene del cpu
+	float factAtAmb = 0.2; // desde el cpu
+	vec4 AportAmb;
+
+	vec3 VectLuz = vec3(0, 10, 10);
+	vec3 VL[2] = vec3[2](vec3(0, 10, 10), vec3(-40, 10, 30));
+	
+	vec4 ColorLuzDifusa = vec4(1.0, 1.0, 1.0, 1.0); //viene del cpu
+	float factAtDif = 1.50; //vienen desde el cpu
+	vec4 AportDif = vec4(0.0);
+
+	vec4 textureColor;	
+	textureColor = texture(colorText, texCoord);
+	/////////////////////////////////////////////////////
+	//aportacion ambiental al modelo de iluminacion
+	/////////////////////////////////////////////////////
+	AportAmb = LuzAmbiental * factAtAmb;
+	
+	/////////////////////////////////////////////////////
+	//aportacion de luz difusa al modelo de iluminacion
+	/////////////////////////////////////////////////////
+	mat3 TBN;
+	vec3 bumpNorm;
+	float diff;
+	vec4 bump;
+
+		VectLuz = normalize(VL[0] - posicion); //normalize(VectLuz - posicion);
+		bump = texture(normText, texCoord);
+		bump = 2 * bump - 1;
+		bump.x = -1 * bump.x;
+		TBN = mat3(tangente, binormal, normal);	
+		bumpNorm = normalize(TBN * vec3(bump));
+		diff = clamp(dot(VectLuz, bumpNorm), 0.0f, 1.0f);
+		AportDif = ColorLuzDifusa * factAtDif * diff;
+
+			
+	//////////////////////////////////////////////////////
+	// aportacion especular de la luz
+	//////////////////////////////////////////////////////
+	float shininess = 30; //viene del cpu
+	vec4 LuzEspecular = vec4(1,1,1,1);
+	float FAS = 1.0;
+	vec3 CamPos = vec3(0.0f, 10.0f, 95.0f); //imperativo que venga del cpu
+	vec3 viewDir = normalize(CamPos - posicion);
+	vec3 reflectDir = normalize(reflect(VectLuz, bumpNorm));
+	vec4 specmap = 1 - texture(specText, texCoord);
+	float spec = pow(max(dot(-viewDir, reflectDir), 0.0), shininess);
+	vec4 AportEspec = specmap * LuzEspecular * FAS * spec;
+
+
+	outputColor = textureColor * (AportAmb + AportDif + AportEspec);
+}
